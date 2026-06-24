@@ -9,6 +9,48 @@ const handleResponse = async (response) => {
   return response.json()
 }
 
+// Get token from localStorage
+const getToken = () => localStorage.getItem('access_token')
+
+// Create headers with optional auth
+const getHeaders = (includeAuth = false) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+  
+  if (includeAuth) {
+    const token = getToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+  }
+  
+  return headers
+}
+
+// Generic fetch with CORS support
+const apiFetch = async (url, options = {}) => {
+  const { requireAuth, ...fetchOptions } = options
+  
+  const config = {
+    ...fetchOptions,
+    credentials: 'include',
+    headers: {
+      ...getHeaders(requireAuth),
+      ...(fetchOptions.headers || {}),
+    },
+  }
+  
+  // Don't set Content-Type for FormData (browser sets it with boundary)
+  if (config.body instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+  
+  const response = await fetch(url, config)
+  return handleResponse(response)
+}
+
 // ── Articles API ─────────────────────────────────────────────────────────────
 export const articlesApi = {
   getAll: async (page = 1, perPage = 10, category = null) => {
@@ -76,11 +118,11 @@ export const editorialApi = {
 // ── Manuscripts API ───────────────────────────────────────────────────────────
 export const manuscriptsApi = {
   submit: async (formData) => {
-    const response = await fetch(`${API_BASE_URL}/manuscripts/submit`, {
+    return apiFetch(`${API_BASE_URL}/manuscripts/submit`, {
       method: 'POST',
+      requireAuth: true,
       body: formData,
     })
-    return handleResponse(response)
   },
 
   track: async (email, manuscriptNumber = '') => {
@@ -94,33 +136,27 @@ export const manuscriptsApi = {
 // ── Contact API ───────────────────────────────────────────────────────────────
 export const contactApi = {
   send: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/contact`, {
+    return apiFetch(`${API_BASE_URL}/contact`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    return handleResponse(response)
   },
 }
 
 // ── Join API ──────────────────────────────────────────────────────────────────
 export const joinApi = {
   applyReviewer: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/join/reviewer`, {
+    return apiFetch(`${API_BASE_URL}/join/reviewer`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    return handleResponse(response)
   },
 
   applyEditorial: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/join/editorial`, {
+    return apiFetch(`${API_BASE_URL}/join/editorial`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    return handleResponse(response)
   },
 }
 
@@ -143,29 +179,23 @@ export const certificateApi = {
 // ── Auth API ──────────────────────────────────────────────────────────────────
 export const authApi = {
   login: async (email, password) => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    return apiFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     })
-    return handleResponse(response)
   },
 
   forgotPassword: async (email) => {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    return apiFetch(`${API_BASE_URL}/auth/forgot-password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
-    return handleResponse(response)
   },
 
   resetPassword: async (token, password) => {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    return apiFetch(`${API_BASE_URL}/auth/reset-password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, password }),
     })
-    return handleResponse(response)
   },
 }
