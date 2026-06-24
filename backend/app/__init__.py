@@ -3,7 +3,7 @@ IJTD Backend — Application Factory (complete, all fixes applied)
 """
 import os
 from datetime import datetime, timezone, timedelta
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -44,7 +44,6 @@ def create_app():
     app.config["MAIL_USERNAME"]       = os.getenv("MAIL_USERNAME", "")
     app.config["MAIL_PASSWORD"]       = os.getenv("MAIL_PASSWORD", "")
     app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", "contact@ijtd.com")
-    # Suppress Flask-Mail errors when not configured — don't crash submissions
     app.config["MAIL_SUPPRESS_SEND"]  = not bool(os.getenv("MAIL_USERNAME", ""))
 
     # ── Swagger ────────────────────────────────────────────────────────────
@@ -66,12 +65,45 @@ def create_app():
     mail.init_app(app)
     jwt.init_app(app)
 
+    # ── CORS Configuration ─────────────────────────────────────────────────
     CORS(app,
-         origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://localhost:5000","https://ijtd-journal-platform.vercel.app","https://ijtd-journal-platform.onrender.com"],
+         origins=[
+             os.getenv("FRONTEND_URL", "http://localhost:3000"),
+             "http://localhost:3000",
+             "http://localhost:5000",
+             "http://127.0.0.1:3000",
+             "http://127.0.0.1:5000",
+             "https://ijtd-journal-platform.vercel.app",
+             "https://ijtd-journal-platform.onrender.com",
+         ],
          supports_credentials=True,
-         allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     )
+
+    # ── CORS Headers for every response ────────────────────────────────────
+    @app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With,Accept'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS,PATCH'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
+
+    # ── Handle OPTIONS preflight requests ──────────────────────────────────
+    @app.before_request
+    def handle_preflight():
+        if request.method == 'OPTIONS':
+            response = jsonify({'status': 'ok'})
+            origin = request.headers.get('Origin', '*')
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With,Accept'
+            response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS,PATCH'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Max-Age'] = '3600'
+            return response
+
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
     # ── Blueprints ─────────────────────────────────────────────────────────
@@ -119,15 +151,6 @@ def create_app():
 
     @app.route("/api/health")
     def health():
-        """
-        Health check
-        ---
-        tags:
-          - System
-        responses:
-          200:
-            description: API is healthy
-        """
         return jsonify({"status": "ok", "timestamp": now_utc().isoformat()})
 
     return app
