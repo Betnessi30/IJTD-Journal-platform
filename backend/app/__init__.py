@@ -67,7 +67,7 @@ def create_app():
     jwt.init_app(app)
 
     CORS(app,
-         origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://localhost:5000"],
+         origins=[os.getenv("FRONTEND_URL", "http://localhost:3000"), "http://localhost:5000","https://ijtd-journal-platform.vercel.app","https://ijtd-journal-platform.onrender.com"],
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
