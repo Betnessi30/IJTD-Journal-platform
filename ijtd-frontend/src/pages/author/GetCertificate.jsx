@@ -1,9 +1,17 @@
 // jtd-frontend/src/pages/authors/GetCertificate.jsx
+//
+// FIX: certificate is an HTML page (not a real PDF — see certificate.py),
+// so we must NOT save it with a .pdf extension and try to "open" it as PDF.
+// Instead: open it in a new browser tab where the user can use the in-page
+// "Save as PDF" print button (already built into the HTML template),
+// or save it as .html directly.
 import { useState } from 'react'
 import PageHero from '../../components/ui/PageHero'
 import FormInput from '../../components/shared/FormInput'
 import { certificateApi } from '../../services/api'
-import { Award, Download, Search, CheckCircle, Loader, AlertCircle } from 'lucide-react'
+import { Award, Download, Search, CheckCircle, Loader, AlertCircle, ExternalLink } from 'lucide-react'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const GetCertificate = () => {
   const [manuscriptNumber, setManuscriptNumber] = useState('')
@@ -11,17 +19,14 @@ const GetCertificate = () => {
   const [loading, setLoading] = useState(false)
   const [certificate, setCertificate] = useState(null)
   const [error, setError] = useState(null)
+  const [opening, setOpening] = useState(false)
 
   const handleGetCertificate = async (e) => {
     e.preventDefault()
-    if (!email) {
-      setError('Email is required')
-      return
-    }
+    if (!email) { setError('Email is required'); return }
 
     setLoading(true)
     setError(null)
-
     try {
       const data = await certificateApi.getCertificate(manuscriptNumber, email)
       setCertificate(data)
@@ -32,29 +37,26 @@ const GetCertificate = () => {
     }
   }
 
-  const handleDownloadPDF = async () => {
-    if (!certificate) return
-    
-    try {
-      const blob = await certificateApi.downloadCertificate(manuscriptNumber, email)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `certificate_${certificate.manuscriptNumber}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (err) {
-      setError('Failed to download certificate. Please try again.')
-    }
+  // ── FIX: open the certificate HTML page in a new tab ──────────────────────
+  // The backend route /api/certificate/download returns a styled HTML page
+  // with a built-in "Save as PDF" print button — that's the correct UX here,
+  // not a forced .pdf download (which would be corrupt since it's HTML).
+  const handleViewCertificate = () => {
+    setOpening(true)
+    const params = new URLSearchParams({
+      manuscript_number: manuscriptNumber,
+      email,
+    })
+    const url = `${API_BASE}/certificate/download?${params}`
+    window.open(url, '_blank')
+    setTimeout(() => setOpening(false), 600)
   }
 
   return (
     <div>
       <PageHero
         title="Get Publication Certificate"
-        subtitle="Download your free digital certificate of publication"
+        subtitle="View and save your free digital certificate of publication"
         breadcrumbs={[
           { title: 'Home', path: '/' },
           { title: 'For Authors', path: '/instructions' },
@@ -75,7 +77,7 @@ const GetCertificate = () => {
           {!certificate ? (
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Retrieve Your Certificate</h3>
-              
+
               {error && (
                 <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 flex items-center gap-2 text-sm">
                   <AlertCircle className="w-4 h-4" />
@@ -100,8 +102,8 @@ const GetCertificate = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn-primary w-full flex items-center justify-center gap-2"
                   disabled={loading}
                 >
@@ -121,7 +123,7 @@ const GetCertificate = () => {
                 <h2 className="text-3xl font-bold mb-2">Certificate of Publication</h2>
                 <p className="text-blue-200">International Journal of Transformative Development</p>
               </div>
-              
+
               <div className="p-8">
                 <div className="border-2 border-gray-200 rounded-xl p-6 mb-6">
                   <p className="text-center text-gray-500 mb-4">This certifies that</p>
@@ -151,13 +153,28 @@ const GetCertificate = () => {
                     </div>
                   </div>
                 </div>
-                
+
+                {/* FIX: "View & Save as PDF" instead of a broken direct PDF download */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-blue-700 flex items-start gap-2">
+                  <ExternalLink className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    Your certificate opens in a new tab. Use the <strong>"Save as PDF"</strong> button
+                    on that page (top-right) to download it, or your browser's Print → Save as PDF option.
+                  </p>
+                </div>
+
                 <div className="flex gap-4">
-                  <button onClick={handleDownloadPDF} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    <Download className="w-5 h-5" />
-                    Download PDF
+                  <button
+                    onClick={handleViewCertificate}
+                    disabled={opening}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {opening
+                      ? <><Loader className="w-5 h-5 animate-spin" />Opening…</>
+                      : <><ExternalLink className="w-5 h-5" />View & Save as PDF</>
+                    }
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setCertificate(null)
                       setManuscriptNumber('')

@@ -1,28 +1,49 @@
+#!/usr/bin/env python3
 """
-debug_failures.py — Get exact error details for the 4 failing endpoints.
-Run: python debug_failures.py (with backend running)
+DIAGNOSTIC SCRIPT — run this to understand what's happening with file serving.
+Place in backend/ and run: python debug_files.py
 """
-import requests
+import os, sys
+sys.path.insert(0, os.path.dirname(__file__))
 
-BASE  = "http://localhost:5000/api"
+from dotenv import load_dotenv
+load_dotenv()
 
-# Login first
-r = requests.post(f"{BASE}/auth/login",
-    json={"email": "admin@ijtd.com", "password": "Admin@IJTD2026!"})
-token = r.json().get("access_token")
-h     = {"Authorization": f"Bearer {token}"}
+from app import create_app, db
+from app.models import Manuscript, Article
 
-print("=" * 60)
-for label, method, url, kwargs in [
-    ("Dashboard stats",          "get",  f"{BASE}/admin/stats",                         {"headers": h}),
-    ("List manuscripts",         "get",  f"{BASE}/admin/manuscripts",                   {"headers": h}),
-    ("Track by email (404)",     "get",  f"{BASE}/manuscripts/track?email=test@x.com",  {}),
-    ("Certificate unknown email","get",  f"{BASE}/certificate?email=x@x.com",           {}),
-]:
-    res = getattr(requests, method)(url, timeout=5, **kwargs)
-    print(f"\n[{res.status_code}] {label}")
-    try:
-        print("  Body:", res.json())
-    except Exception:
-        print("  Body:", res.text[:300])
-print("=" * 60)
+app = create_app()
+
+with app.app_context():
+    upload_folder = app.config.get("UPLOAD_FOLDER", "")
+    print(f"\n{'='*60}")
+    print(f"UPLOAD_FOLDER: {upload_folder}")
+    print(f"Folder exists: {os.path.exists(upload_folder)}")
+    
+    if os.path.exists(upload_folder):
+        files = os.listdir(upload_folder)
+        print(f"Files in folder ({len(files)} total):")
+        for f in files[:20]:
+            full = os.path.join(upload_folder, f)
+            size = os.path.getsize(full)
+            print(f"  {f}  ({size} bytes)")
+    
+    print(f"\n--- MANUSCRIPTS ---")
+    mss = Manuscript.query.all()
+    for ms in mss[:10]:
+        exists = False
+        if ms.file_path:
+            full = os.path.join(upload_folder, ms.file_path)
+            exists = os.path.exists(full)
+        print(f"  [{ms.manuscript_number}] file_path={ms.file_path!r}  exists={exists}")
+    
+    print(f"\n--- ARTICLES ---")
+    arts = Article.query.all()
+    for a in arts[:10]:
+        exists = False
+        if a.pdf_url:
+            full = os.path.join(upload_folder, a.pdf_url)
+            exists = os.path.exists(full)
+        print(f"  [{a.id}] title={a.title[:40]!r}  pdf_url={a.pdf_url!r}  exists={exists}")
+    
+    print(f"{'='*60}\n")

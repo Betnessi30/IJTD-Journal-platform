@@ -1,32 +1,33 @@
 // src/pages/admin/IssuesManagement.jsx
+// Admin publishes articles from here.
+// Editor can view issues and see formatted PDF status.
+// The "Publish" action is ADMIN ONLY.
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import { authFetchJson, adminUrl } from '../../utils/auth'
-import { BookOpen, ChevronDown, ChevronRight, FileText, Loader, RefreshCw, Send } from 'lucide-react'
+import {
+  BookOpen, ChevronDown, ChevronRight, FileText, Loader,
+  RefreshCw, Send, CheckCircle, Lock, AlertCircle
+} from 'lucide-react'
 
 const PublishModal = ({ manuscript, issues, onClose, onDone }) => {
-  const [issueId, setIssueId]   = useState('')
-  const [doi, setDoi]           = useState(manuscript.manuscript_number)
-  const [pdfUrl, setPdfUrl]     = useState('')
+  const [issueId,  setIssueId]  = useState('')
+  const [doi,      setDoi]      = useState(manuscript.manuscript_number)
   const [category, setCategory] = useState(manuscript.manuscript_type || 'Research Article')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState('')
 
   const handlePublish = async () => {
     if (!issueId) { setError('Please select an issue'); return }
-    setSaving(true)
-    setError('')
+    setSaving(true); setError('')
     try {
       await authFetchJson(adminUrl(`/manuscripts/${manuscript.id}/publish`), {
         method: 'POST',
-        body: JSON.stringify({ issue_id: parseInt(issueId), doi, pdf_url: pdfUrl, category }),
+        body: JSON.stringify({ issue_id: parseInt(issueId), doi, category }),
       })
-      onDone()
-      onClose()
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setSaving(false)
-    }
+      onDone(); onClose()
+    } catch (e) { setError(e.message) }
+    finally    { setSaving(false) }
   }
 
   return (
@@ -37,14 +38,27 @@ const PublishModal = ({ manuscript, issues, onClose, onDone }) => {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
         <div className="p-6 space-y-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-purple-900 mb-1 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />Formatted PDF Ready
+            </p>
+            <p className="text-xs text-purple-700">
+              The editor has uploaded the formatted PDF. This will be the published article file.
+            </p>
+          </div>
+
           <div>
             <p className="text-sm text-gray-500">Manuscript</p>
             <p className="font-semibold text-gray-900 text-sm mt-1 line-clamp-2">{manuscript.title}</p>
+            <p className="text-xs text-gray-400 mt-1">{manuscript.authors} · {manuscript.manuscript_number}</p>
           </div>
+
           {error && <p className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{error}</p>}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Issue</label>
-            <select value={issueId} onChange={e => setIssueId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select value={issueId} onChange={e => setIssueId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">— Select issue —</option>
               {issues.map(i => (
                 <option key={i.id} value={i.id}>
@@ -53,22 +67,31 @@ const PublishModal = ({ manuscript, issues, onClose, onDone }) => {
               ))}
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">DOI</label>
-            <input value={doi} onChange={e => setDoi(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input value={doi} onChange={e => setDoi(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">PDF URL (optional)</label>
-            <input value={pdfUrl} onChange={e => setPdfUrl(e.target.value)} placeholder="https://..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Article Category</label>
-            <input value={category} onChange={e => setCategory(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input value={category} onChange={e => setCategory(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800">
+              Publishing will create a live article, send a publication notification email to the author,
+              and make the formatted PDF publicly downloadable.
+            </p>
           </div>
         </div>
         <div className="flex gap-3 p-6 border-t">
           <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 rounded-lg py-2 font-semibold hover:bg-gray-50">Cancel</button>
-          <button onClick={handlePublish} disabled={saving} className="flex-1 bg-green-600 text-white rounded-lg py-2 font-semibold hover:bg-green-700 disabled:opacity-60 flex items-center justify-center gap-2">
+          <button onClick={handlePublish} disabled={saving}
+            className="flex-1 bg-green-600 text-white rounded-lg py-2 font-semibold hover:bg-green-700 disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Publish
           </button>
@@ -79,27 +102,26 @@ const PublishModal = ({ manuscript, issues, onClose, onDone }) => {
 }
 
 const IssuesManagement = () => {
-  const [issues, setIssues]         = useState([])
-  const [accepted, setAccepted]     = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [expanded, setExpanded]     = useState(null)
-  const [articles, setArticles]     = useState({})
-  const [publishing, setPublishing] = useState(null)
+  const { isAdmin } = useAuth()
+
+  const [issues,      setIssues]      = useState([])
+  const [ready,       setReady]       = useState([])   // ready_to_publish manuscripts
+  const [loading,     setLoading]     = useState(true)
+  const [expanded,    setExpanded]    = useState(null)
+  const [articles,    setArticles]    = useState({})
+  const [publishing,  setPublishing]  = useState(null)
 
   const load = async () => {
     setLoading(true)
     try {
-      const [iss, acc] = await Promise.all([
+      const [iss, rdy] = await Promise.all([
         authFetchJson(adminUrl('/issues')),
-        authFetchJson(adminUrl('/manuscripts?status=accepted&per_page=50')),
+        authFetchJson(adminUrl('/manuscripts?status=ready_to_publish&per_page=50')),
       ])
       setIssues(iss)
-      setAccepted(acc.manuscripts || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+      setReady(rdy.manuscripts || [])
+    } catch (e) { console.error(e) }
+    finally   { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
@@ -115,15 +137,10 @@ const IssuesManagement = () => {
   }
 
   const toggle = (issueId) => {
-    if (expanded === issueId) {
-      setExpanded(null)
-    } else {
-      setExpanded(issueId)
-      loadArticles(issueId)
-    }
+    if (expanded === issueId) { setExpanded(null) }
+    else { setExpanded(issueId); loadArticles(issueId) }
   }
 
-  // Group issues by volume
   const byVolume = issues.reduce((acc, issue) => {
     const key = `${issue.volume_number} (${issue.volume_year})`
     if (!acc[key]) acc[key] = []
@@ -135,42 +152,75 @@ const IssuesManagement = () => {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Issues & Publication</h1>
-          <p className="text-sm text-gray-500 mt-1">{accepted.length} accepted manuscripts ready to publish</p>
+          <h1 className="text-2xl font-bold text-gray-900">Issues &amp; Publication</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isAdmin
+              ? `${ready.length} manuscript(s) ready to publish`
+              : 'View issues and publication status'}
+          </p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600">
+        <button onClick={load}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />Refresh
         </button>
       </div>
 
-      {/* Accepted manuscripts ready to publish */}
-      {accepted.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-6">
-          <h2 className="font-bold text-green-800 mb-3 flex items-center gap-2">
-            <Send className="w-4 h-4" />Ready to Publish ({accepted.length})
+      {/* Ready to Publish panel */}
+      {isAdmin ? (
+        <div className={`border-2 rounded-xl p-5 mb-6 ${ready.length > 0 ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+          <h2 className={`font-bold mb-3 flex items-center gap-2 ${ready.length > 0 ? 'text-green-800' : 'text-gray-500'}`}>
+            <Send className="w-4 h-4" />
+            Ready to Publish — Formatted PDFs Uploaded ({ready.length})
           </h2>
-          <div className="space-y-2">
-            {accepted.map(ms => (
-              <div key={ms.id} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm">
-                <div>
-                  <p className="text-sm font-semibold text-gray-900 line-clamp-1">{ms.title}</p>
-                  <p className="text-xs text-gray-500">{ms.manuscript_number} · {ms.authors}</p>
+          {ready.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No manuscripts ready yet. The editor uploads the formatted PDF from the Manuscripts page,
+              which changes the status to "ready_to_publish".
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {ready.map(ms => (
+                <div key={ms.id} className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 line-clamp-1">{ms.title}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <p className="text-xs text-gray-500">{ms.manuscript_number} · {ms.authors}</p>
+                      <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
+                        ✓ Formatted PDF
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPublishing(ms)}
+                    className="text-xs bg-green-600 text-white rounded-lg px-3 py-1.5 font-semibold hover:bg-green-700 flex-shrink-0 ml-4"
+                  >
+                    Publish
+                  </button>
                 </div>
-                <button
-                  onClick={() => setPublishing(ms)}
-                  className="text-xs bg-green-600 text-white rounded-lg px-3 py-1.5 font-semibold hover:bg-green-700 flex-shrink-0 ml-4"
-                >
-                  Publish
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        // Editor sees a read-only info box
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6 flex items-start gap-3">
+          <Lock className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-blue-900 text-sm">Publishing is Admin-only</p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              Once you upload a formatted PDF for a payment-received manuscript, the status changes
+              to <strong>Ready to Publish</strong> and the Admin can publish it here.
+              {ready.length > 0 && <span className="font-semibold"> {ready.length} manuscript(s) are currently awaiting Admin publication.</span>}
+            </p>
           </div>
         </div>
       )}
 
       {/* Issues by volume */}
       {loading ? (
-        <div className="p-12 text-center text-gray-400"><Loader className="w-6 h-6 animate-spin mx-auto mb-2" />Loading…</div>
+        <div className="p-12 text-center text-gray-400">
+          <Loader className="w-6 h-6 animate-spin mx-auto mb-2" />Loading…
+        </div>
       ) : (
         <div className="space-y-4">
           {Object.entries(byVolume).map(([volLabel, volIssues]) => (
@@ -193,9 +243,7 @@ const IssuesManagement = () => {
                         <span className="text-sm font-medium text-gray-700">
                           Issue {issue.number}: {issue.month}
                         </span>
-                        <span className="text-xs text-gray-400">
-                          ({issue.article_count} articles)
-                        </span>
+                        <span className="text-xs text-gray-400">({issue.article_count} articles)</span>
                       </div>
                     </button>
                     {expanded === issue.id && (
@@ -203,7 +251,7 @@ const IssuesManagement = () => {
                         {!articles[issue.id] ? (
                           <p className="text-sm text-gray-400 py-3">Loading…</p>
                         ) : articles[issue.id].length === 0 ? (
-                          <p className="text-sm text-gray-400 py-3">No articles in this issue yet</p>
+                          <p className="text-sm text-gray-400 py-3">No articles in this issue yet.</p>
                         ) : (
                           <div className="space-y-2 pt-3">
                             {articles[issue.id].map(a => (

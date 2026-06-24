@@ -5,6 +5,9 @@ KEY FIXES vs previous version:
 1. Manuscript.assigned_reviewer_id uses lazy='select' and handles None safely
 2. User.to_dict() uses getattr to safely access role
 3. All relationships use lazy loading options to prevent DetachedInstanceError
+4. Manuscript.formatted_pdf_path added — stores the editor-uploaded formatted PDF
+   (separate from file_path which is the author's original Word submission)
+5. New status values: accepted_pending_payment, payment_received, ready_to_publish
 """
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -59,7 +62,6 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
-        # Use getattr with fallback to avoid AttributeError if role not loaded
         role_name = None
         try:
             role_name = self.role.name if self.role else None
@@ -186,13 +188,20 @@ class Manuscript(db.Model):
     keywords            = db.Column(db.Text, nullable=False)
     authors             = db.Column(db.Text, nullable=False)
     corresponding_email = db.Column(db.String(120), nullable=False)
+
+    # Author's original Word file (.doc / .docx)
     file_path           = db.Column(db.String(255))
 
-    status            = db.Column(db.String(30), default="submitted", nullable=False)
+    # Editor's formatted PDF — uploaded after payment, before publication
+    # Run: python migrate_add_formatted_pdf.py  (if upgrading an existing DB)
+    formatted_pdf_path  = db.Column(db.String(255))
+
+    # Workflow status
+    # submitted → under_review → revision_required / accepted_pending_payment / rejected
+    # accepted_pending_payment → payment_received → ready_to_publish → published
+    status            = db.Column(db.String(40), default="submitted", nullable=False)
     reviewer_comments = db.Column(db.Text)
 
-    # FIX: nullable=True, no FK constraint enforced at DB level in SQLite;
-    # for Postgres we keep the FK but make it explicitly nullable
     assigned_reviewer_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=True, default=None
     )
@@ -200,13 +209,11 @@ class Manuscript(db.Model):
     submitted_at = db.Column(db.DateTime(timezone=True), default=now_utc)
     updated_at   = db.Column(db.DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
-    # lazy="select" prevents automatic join that causes issues when user table not ready
     assigned_reviewer = db.relationship(
         "User", foreign_keys=[assigned_reviewer_id], lazy="select"
     )
 
     def to_dict(self):
-        # Safely get reviewer name — avoid crash if relationship fails
         reviewer_name = None
         try:
             if self.assigned_reviewer_id and self.assigned_reviewer:
@@ -215,18 +222,20 @@ class Manuscript(db.Model):
             reviewer_name = None
 
         return {
-            "id":                 self.id,
-            "manuscript_number":  self.manuscript_number,
-            "manuscript_type":    self.manuscript_type,
-            "title":              self.title,
-            "authors":            self.authors,
-            "corresponding_email":self.corresponding_email,
-            "status":             self.status,
-            "reviewer_comments":  self.reviewer_comments,
-            "assigned_reviewer":  reviewer_name,
-            "file_path":          self.file_path,
-            "submitted_at":       self.submitted_at.strftime("%Y-%m-%d") if self.submitted_at else None,
-            "updated_at":         self.updated_at.strftime("%Y-%m-%d") if self.updated_at else None,
+            "id":                   self.id,
+            "manuscript_number":    self.manuscript_number,
+            "manuscript_type":      self.manuscript_type,
+            "title":                self.title,
+            "authors":              self.authors,
+            "corresponding_email":  self.corresponding_email,
+            "status":               self.status,
+            "reviewer_comments":    self.reviewer_comments,
+            "assigned_reviewer":    reviewer_name,
+            "file_path":            self.file_path,
+            "formatted_pdf_path":   self.formatted_pdf_path,
+            "has_formatted_pdf":    bool(self.formatted_pdf_path),
+            "submitted_at":         self.submitted_at.strftime("%Y-%m-%d") if self.submitted_at else None,
+            "updated_at":           self.updated_at.strftime("%Y-%m-%d") if self.updated_at else None,
         }
 
 
