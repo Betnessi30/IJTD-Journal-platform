@@ -179,7 +179,7 @@ const SubmitManuscript = () => {
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Upload Manuscript
-                  <span className="text-gray-400 font-normal ml-1">(PDF, DOC, or DOCX — max 100 MB)</span>
+                  <span className="text-gray-400 font-normal ml-1">( DOC, or DOCX — max 100 MB)</span>
                 </label>
                 <div className={`border-2 border-dashed rounded-xl transition-colors
                   ${errors.file ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}
@@ -188,7 +188,7 @@ const SubmitManuscript = () => {
                   <input
                     type="file"
                     id="manuscript-file"
-                    accept=".doc,.docx,.pdf"
+                    accept=".doc,.docx,"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -207,7 +207,7 @@ const SubmitManuscript = () => {
                       <>
                         <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                         <p className="text-gray-600 font-medium">Click to upload your manuscript</p>
-                        <p className="text-sm text-gray-400 mt-1">PDF, DOC, or DOCX — max 100 MB</p>
+                        <p className="text-sm text-gray-400 mt-1"> DOC, or DOCX — max 100 MB</p>
                       </>
                     )}
                   </label>
